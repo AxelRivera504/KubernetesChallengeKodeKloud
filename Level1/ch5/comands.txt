@@ -1,0 +1,20 @@
+1. Lo prumero que tenemos que hacer es verificar el deployment verificando
+que en realidad si tenga el rollingupdate habilita para aplicar el comando de
+cambio de imagen
+
+sintaxis describe 
+kubectl describe deployment nginx-deployment
+
+
+2.Aplicamos el cambio de imagen para el deployment que enseguida
+disparará  el rolling
+
+sintaxis
+kubectl set image deployment/<deployment-name> <container-name>=<new-image>
+
+
+3.Verificar que el rolling funcione como debería
+
+Sintaxis para verificar el rolling update
+ kubectl rollout history deployment/nginx-deployment
+ kubectl rollout status deployment/nginx-deployment
