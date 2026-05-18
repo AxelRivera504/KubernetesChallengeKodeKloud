@@ -1,0 +1,3 @@
+kubectl rollout undo deployment/NombreDeployment
+
+Rollback previous version of deployment.
