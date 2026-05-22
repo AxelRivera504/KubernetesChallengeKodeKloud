@@ -1,0 +1,261 @@
+# Kubernetes - Debugging Pod nginx + php-fpm + ConfigMap + Shared Volume
+
+# ==========================================
+
+# OBJETIVO DEL EJERCICIO
+
+# ==========================================
+
+Corregir un Pod compuesto por:
+
+* nginx
+* php-fpm
+* ConfigMap nginx-config
+* volumen compartido
+
+Problema principal:
+Los contenedores compartían el mismo volume,
+pero montado en rutas diferentes.
+
+nginx:
+/var/www/html
+
+php-fpm:
+/usr/share/nginx/html
+
+Esto provocaba que:
+
+* nginx no encontrara index.php
+* php-fpm y nginx no compartieran correctamente los archivos
+
+La solución fue:
+montar ambos contenedores en:
+
+/var/www/html
+
+# ==========================================
+
+# COMANDOS UTILIZADOS
+
+# ==========================================
+
+# Ver Pod
+
+kubectl get pods
+
+# Ver detalles del Pod
+
+kubectl describe pod nginx-phpfpm
+
+# Exportar YAML del Pod
+
+kubectl get pod nginx-phpfpm -o yaml > pod.yaml
+
+# Editar YAML
+
+nano pod.yaml
+
+# Reemplazar Pod
+
+kubectl replace --force -f pod.yaml
+
+# Verificar que el Pod esté Running
+
+kubectl get pods
+
+# Copiar index.php desde jump-host al contenedor nginx
+
+kubectl cp /home/thor/index.php nginx-phpfpm:/var/www/html/index.php -c nginx-container
+
+# Verificar que el archivo exista
+
+kubectl exec -it nginx-phpfpm -c nginx-container -- ls /var/www/html
+
+# Ver contenido del directorio
+
+kubectl exec -it nginx-phpfpm -c nginx-container -- ls -la /var/www/html
+
+# Ver logs nginx
+
+kubectl logs nginx-phpfpm -c nginx-container
+
+# Ver logs php-fpm
+
+kubectl logs nginx-phpfpm -c php-fpm-container
+
+# Entrar al contenedor nginx
+
+kubectl exec -it nginx-phpfpm -c nginx-container -- sh
+
+# Entrar al contenedor php-fpm
+
+kubectl exec -it nginx-phpfpm -c php-fpm-container -- sh
+
+# ==========================================
+
+# CONSIDERACIONES IMPORTANTES
+
+# ==========================================
+
+1. SHARED VOLUMES
+
+---
+
+Cuando varios contenedores usan
+el mismo volumen:
+
+name: shared-files
+
+deben montar rutas compatibles.
+
+Incorrecto:
+nginx  -> /var/www/html
+php    -> /usr/share/nginx/html
+
+Correcto:
+ambos -> /var/www/html
+
+---
+
+2. CONFIGMAP NGINX
+
+---
+
+El ConfigMap definía:
+
+root /var/www/html;
+
+Por eso TODOS los contenedores
+debían trabajar sobre esa ruta.
+
+---
+
+3. VOLUMEMOUNTS
+
+---
+
+Revisar SIEMPRE:
+
+* name
+* mountPath
+* subPath
+
+Especialmente cuando:
+
+* hay nginx
+* php-fpm
+* sidecars
+* shared files
+
+---
+
+4. COPY FILES TO POD
+
+---
+
+Sintaxis:
+
+kubectl cp archivo pod:/ruta -c container
+
+Ejemplo:
+kubectl cp /home/thor/index.php nginx-phpfpm:/var/www/html/index.php -c nginx-container
+
+---
+
+5. REVISAR PODS
+
+---
+
+Muy importante:
+
+kubectl describe pod nginx-phpfpm
+
+Revisar:
+
+* Events
+* Mounts
+* Volumes
+* Containers
+* ConfigMaps
+
+---
+
+6. WEBSITE BUTTON
+
+---
+
+Si el Website button no funciona:
+
+Verificar:
+
+* Pod Running
+* Service correcto
+* nginx.conf correcto
+* root path correcto
+* archivo index.php existente
+* puertos correctos
+
+---
+
+7. CONFIGMAP MOUNT
+
+---
+
+nginx.conf se montaba usando:
+
+subPath: nginx.conf
+
+Ejemplo:
+
+mountPath: /etc/nginx/nginx.conf
+subPath: nginx.conf
+
+---
+
+8. REEMPLAZAR POD
+
+---
+
+Cuando Kubernetes no permite
+editar campos como volumeMounts:
+
+Usar:
+
+kubectl replace --force -f pod.yaml
+
+Esto:
+
+* elimina el pod
+* lo recrea con los cambios
+
+---
+
+9. ENDPOINTS IMPORTANTES
+
+---
+
+nginx:
+/var/www/html
+
+php-fpm:
+127.0.0.1:9000
+
+nginx.conf:
+fastcgi_pass 127.0.0.1:9000;
+
+---
+
+10. DEBUGGING TÍPICO
+
+---
+
+1. kubectl get pods
+2. kubectl describe pod
+3. kubectl logs
+4. revisar volumeMounts
+5. revisar ConfigMap
+6. revisar mountPath
+7. copiar archivos necesarios
+8. probar Website button
+
+---

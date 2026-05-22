@@ -1,0 +1,18 @@
+An application deployed on the Kubernetes cluster requires an update with new features developed by the Nautilus application development team. The existing setup includes a deployment named nginx-deployment and a service named nginx-service. Below are the necessary changes to be implemented without deleting the deployment and service:
+
+
+1.) Modify the service nodeport from 30008 to 32165
+
+2.) Change the replicas count from 1 to 5
+
+3.) Update the image from nginx:1.18 to nginx:latest
+
+Para corregir esto usamos los siguientes comandos 
+
+1. kubectl get all: esto para listar todos los objetos creados y poder verificar el nombre del deploy y service
+2. kubectl edit deployment "nombre Deploy": con este entramos a modificar directamente el deploy por medio de vin, 
+presioamos "i" para entrar en modo edición y luego cambiamos la image del container a latest y la cantidad replicas
+de 1 a 5, luego presionamos "esc" y seguido escribimos ":wq" y damos enter.
+3. kubectl edit service "nombre service": con este igual entramos a modificar directamente el service por medio de vin,
+presionamos "i" para entrar en modo edición y luego cambiamos el Port del Nodeport al que se indica, luego presionamos
+"esc" y seguido escribimos ":wq" y damos enter.

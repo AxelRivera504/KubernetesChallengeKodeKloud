@@ -1,0 +1,13 @@
+Solo teniamos que corregir un pod que estaba con error, para hacerlo solo ejecute lo siguiente.
+
+1. kubectl describe pod "NombrePod": con este comando identificamos que tipo de error esta 
+generando actualmente.
+
+2. kubectl edit pod "NombrePod": en este caso como usamos vim para modificar el archivo nos pondremos
+en modo edición preseinando la tecla "i" y luego corregir el problema que en este caso era que en la 
+image tenia "latests" y no "latest"
+
+3. Luego aplicado el cambio presionamos "esc" y luego escribimos ":wq" para guardar los cambios
+y con eso ya aplica el cambio al pod.
+
+4. Para verificar que este running solo hacemos "kubectl get pods"

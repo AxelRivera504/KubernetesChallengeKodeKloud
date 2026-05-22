@@ -1,0 +1,68 @@
+The Nautilus DevOps team needs a time check pod created in a specific Kubernetes namespace for logging purposes. Initially, it's for testing, but it may be integrated into an existing cluster later. Here's what's required:
+
+
+Create a pod called time-check in the devops namespace. The pod should contain a container named time-check, utilizing the busybox image with the latest tag (specify as busybox:latest).
+
+Create a config map named time-config with the data TIME_FREQ=7 in the same namespace.
+
+Configure the time-check container to execute the command: while true; do date; sleep $TIME_FREQ;done. Ensure the result is written /opt/security/time/time-check.log. Also, add an environmental variable TIME_FREQ in the container, fetching its value from the config map TIME_FREQ key.
+
+Create a volume log-volume and mount it at /opt/security/time within the container.
+
+
+Para probar los cambios y que todo se cree correctamente usar esto.
+
+1. Verificar Namespace
+kubectl get ns
+
+Debe aparecer:
+
+devops
+2. Verificar ConfigMap
+kubectl get configmap -n devops
+
+Debe aparecer:
+
+time-config
+3. Ver contenido del ConfigMap
+kubectl describe configmap time-config -n devops
+
+Debes ver:
+
+TIME_FREQ: 7
+4. Verificar Pod
+kubectl get pods -n devops
+
+Debe verse:
+
+time-check   1/1   Running
+5. Revisar detalles del Pod
+kubectl describe pod time-check -n devops
+
+6. Verificar variable de entorno dentro del contenedor
+kubectl exec -it time-check -n devops -- printenv
+
+Debes ver:
+
+TIME_FREQ=7
+
+7. Verificar que el archivo log exista
+kubectl exec -it time-check -n devops -- ls /opt/security/time
+
+Debe aparecer:
+
+time-check.log
+
+8. Verificar contenido del log
+kubectl exec -it time-check -n devops -- cat /opt/security/time/time-check.log
+
+Debes ver varias fechas:
+
+Thu May 22 ...
+Thu May 22 ...
+
+9. Verificar que sigue escribiendo
+
+Ejecuta dos veces:
+
+kubectl exec -it time-check -n devops -- cat /opt/security/time/time-check.log

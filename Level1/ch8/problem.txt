@@ -1,0 +1,6 @@
+Crear un cronjob en kubernetes
+
+Nombre cron job "devops"
+Image container "httpd:latest"
+restartPolicy OnFailure
+Execute command: "echo Welcome to xfusionCorp!"

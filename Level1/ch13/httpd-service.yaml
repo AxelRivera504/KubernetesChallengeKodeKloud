@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+   name: httpd-service
+
+spec:
+  type: NodePort
+  ports:
+  - name: httpd-service
+    port: 80
+    targetPort: 80
+    nodePort: 30080
+  selector: #aqui deben los labels del pod creado, en este caso estaban en la definicion del replicaset.
+    app: httpd_app
+    type: front-end
