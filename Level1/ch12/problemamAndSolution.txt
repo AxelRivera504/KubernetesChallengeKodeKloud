@@ -6,7 +6,7 @@ An application deployed on the Kubernetes cluster requires an update with new fe
 2.) Change the replicas count from 1 to 5
 
 3.) Update the image from nginx:1.18 to nginx:latest
-
+    
 Para corregir esto usamos los siguientes comandos 
 
 1. kubectl get all: esto para listar todos los objetos creados y poder verificar el nombre del deploy y service
