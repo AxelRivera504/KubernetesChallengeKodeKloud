@@ -1,0 +1,560 @@
+One of the DevOps team members was trying to install a WordPress website on a LAMP stack, which is deployed on a Kubernetes cluster. It was working well, and we could see the installation page a few hours ago. However, something seems to have gone wrong with the stack after the website went down. Please look into the issue and fix it:
+
+
+
+FYI, the deployment name is lamp-wp and it is using a service named lamp-service. Apache is using the default HTTP port, and the NodePort is 30008. From the application logs, it has been identified that the application is facing some issues connecting to the database, in addition to other problems. Additionally, there are some environment variables associated with the pods, such as MYSQL_ROOT_PASSWORD, MYSQL_DATABASE, MYSQL_USER, MYSQL_PASSWORD, and MYSQL_HOST
+
+Also, do not attempt to delete or modify any other existing components, such as deployment names, service names, types, labels, secrets and so on.
+
+# Kubernetes Troubleshooting - LAMP Stack + WordPress + MySQL + Services
+
+# ==========================================
+
+# OBJETIVO DEL EJERCICIO
+
+# ==========================================
+
+Se tenía un stack LAMP desplegado en Kubernetes compuesto por:
+
+* Apache + PHP
+* MySQL
+* Services NodePort y ClusterIP
+* Variables de entorno usando Secrets
+
+El sitio WordPress dejó de funcionar y el objetivo fue:
+
+* identificar el problema,
+* corregir el deployment,
+* corregir el service,
+* revisar logs,
+* validar conectividad MySQL,
+* corregir errores PHP.
+
+El deployment involucrado:
+
+lamp-wp
+
+Service principal:
+
+lamp-service
+
+MySQL Service:
+
+mysql-service
+
+NodePort esperado:
+
+30008
+
+Apache utilizando puerto HTTP por defecto:
+
+80
+
+# ==========================================
+
+# RECURSOS INVOLUCRADOS
+
+# ==========================================
+
+Deployment:
+lamp-wp
+
+Services:
+lamp-service
+mysql-service
+
+Containers:
+httpd-php-container
+mysql-container
+
+Secrets utilizados:
+mysql-root-pass
+mysql-db-url
+mysql-user-pass
+mysql-host
+
+# ==========================================
+
+# COMANDOS UTILIZADOS
+
+# ==========================================
+
+# Ver deployments
+
+kubectl get deployments
+
+# Ver pods
+
+kubectl get pods
+
+# Ver services
+
+kubectl get svc
+
+# Ver detalles deployment
+
+kubectl describe deployment lamp-wp
+
+# Ver detalles service
+
+kubectl describe svc lamp-service
+
+# Ver endpoints service
+
+kubectl describe svc mysql-service
+
+# Ver logs Apache/PHP
+
+kubectl logs <pod-name> -c httpd-php-container
+
+# Ver logs MySQL
+
+kubectl logs <pod-name> -c mysql-container
+
+# Entrar al contenedor Apache/PHP
+
+kubectl exec -it <pod-name> -c httpd-php-container -- sh
+
+# Navegar al directorio app
+
+cd /app
+
+# Listar archivos
+
+ls
+
+# Ver archivo PHP
+
+cat index.php
+
+# Editar archivo PHP
+
+vi index.php
+
+# Editar service
+
+kubectl edit svc lamp-service
+
+# Ver variables de entorno
+
+kubectl exec -it <pod-name> -c httpd-php-container -- printenv
+
+# ==========================================
+
+# PROBLEMA #1 - SERVICE MAL CONFIGURADO
+
+# ==========================================
+
+# PROBLEMA DETECTADO
+
+El service:
+
+lamp-service
+
+estaba utilizando:
+
+port: 8080
+targetPort: 8080
+
+Sin embargo Apache utiliza:
+
+80
+
+Esto impedía el acceso correcto al sitio web.
+
+# SERVICE INCORRECTO
+
+apiVersion: v1
+kind: Service
+
+metadata:
+name: lamp-service
+
+spec:
+type: NodePort
+
+ports:
+- nodePort: 30008
+port: 8080
+targetPort: 8080
+
+# SERVICE CORREGIDO
+
+apiVersion: v1
+kind: Service
+
+metadata:
+name: lamp-service
+
+spec:
+type: NodePort
+
+selector:
+app: lamp
+tier: frontend
+
+ports:
+- nodePort: 30008
+port: 80
+targetPort: 80
+
+# RESULTADO
+
+Apache quedó correctamente expuesto mediante:
+
+NODE-IP:30008
+
+# ==========================================
+
+# PROBLEMA #2 - ERROR PHP PARSE ERROR
+
+# ==========================================
+
+# ERROR EN LOGS
+
+PHP Parse error:
+syntax error, unexpected 'MYSQL_PASSWORD'
+
+Archivo afectado:
+
+/app/index.php
+
+# LOGS IMPORTANTES
+
+kubectl logs <pod-name> -c httpd-php-container
+
+Resultado:
+
+PHP Parse error: syntax error,
+unexpected 'MYSQL_PASSWORD'
+
+# ==========================================
+
+# ARCHIVO PHP ORIGINAL
+
+# ==========================================
+
+<?php
+$dbname = $_ENV['MYSQL_DATABASE'];
+$dbuser = $_ENV['MYSQL_USER'];
+$dbpass = $_ENV[''MYSQL_PASSWORD""];
+$dbhost = $_ENV['MYSQL-HOST'];
+
+$connect = mysqli_connect($dbhost, $dbuser, $dbpass)
+or die("Unable to Connect to '$dbhost'");
+
+$test_query = "SHOW TABLES FROM $dbname";
+$result = mysqli_query($test_query);
+
+if ($result->connect_error) {
+   die("Connection failed: " . $conn->connect_error);
+}
+
+echo "Connected successfully";
+
+# ==========================================
+# ERRORES IDENTIFICADOS
+# ==========================================
+
+ERROR #1
+
+$dbpass = $_ENV[''MYSQL_PASSWORD""];
+
+Problema:
+comillas incorrectas.
+
+Correcto:
+
+$dbpass = $_ENV['MYSQL_PASSWORD'];
+
+------------------------------------------
+
+ERROR #2
+
+$dbhost = $_ENV['MYSQL-HOST'];
+
+Problema:
+se utilizó "-" en lugar de "_"
+
+Correcto:
+
+$dbhost = $_ENV['MYSQL_HOST'];
+
+------------------------------------------
+
+ERROR #3
+
+$result = mysqli_query($test_query);
+
+Problema:
+faltaba pasar la conexión MySQL.
+
+Correcto:
+
+$result = mysqli_query($connect, $test_query);
+
+------------------------------------------
+
+ERROR #4
+
+if ($result->connect_error)
+
+Problema:
+mysqli_query no devuelve connect_error.
+
+Correcto:
+
+if (!$result)
+
+# ==========================================
+# ARCHIVO PHP CORREGIDO
+# ==========================================
+
+<?php
+$dbname = $_ENV['MYSQL_DATABASE'];
+$dbuser = $_ENV['MYSQL_USER'];
+$dbpass = $_ENV['MYSQL_PASSWORD'];
+$dbhost = $_ENV['MYSQL_HOST'];
+
+$connect = mysqli_connect($dbhost, $dbuser, $dbpass)
+or die("Unable to Connect to '$dbhost'");
+
+$test_query = "SHOW TABLES FROM $dbname";
+
+$result = mysqli_query($connect, $test_query);
+
+if (!$result) {
+   die("Connection failed: " . mysqli_error($connect));
+}
+
+echo "Connected successfully";
+
+?>
+
+# ==========================================
+
+# VALIDACIONES REALIZADAS
+
+# ==========================================
+
+1. MYSQL LOGS
+
+---
+
+Se validó que MySQL estuviera funcionando correctamente:
+
+mysqld: ready for connections
+
+Puerto activo:
+
+3306
+
+---
+
+2. APACHE/PHP LOGS
+
+---
+
+Se verificaron los logs:
+
+kubectl logs <pod-name> -c httpd-php-container
+
+---
+
+3. VARIABLES DE ENTORNO
+
+---
+
+Variables utilizadas:
+
+MYSQL_ROOT_PASSWORD
+MYSQL_DATABASE
+MYSQL_USER
+MYSQL_PASSWORD
+MYSQL_HOST
+
+---
+
+4. SERVICE ENDPOINTS
+
+---
+
+Verificación:
+
+kubectl describe svc mysql-service
+
+Importante validar:
+
+Endpoints:
+
+Si aparece vacío:
+problema de selector o labels.
+
+---
+
+5. NODEPORT
+
+---
+
+NodePort correcto:
+
+30008
+
+---
+
+6. APACHE PORT
+
+---
+
+Apache escucha en:
+
+80
+
+NO en:
+
+8080
+
+# ==========================================
+
+# CONSIDERACIONES IMPORTANTES
+
+# ==========================================
+
+1. NODEPORT SERVICES
+
+---
+
+NodePort expone aplicaciones externamente.
+
+Flujo:
+
+NODE-IP:NODEPORT
+↓
+Service
+↓
+Pods
+
+---
+
+2. SERVICES Y SELECTORS
+
+---
+
+El selector del Service debe coincidir
+con los labels del Pod.
+
+Ejemplo:
+
+selector:
+app: lamp
+tier: frontend
+
+---
+
+3. VARIABLES DE ENTORNO EN PHP
+
+---
+
+Acceso correcto:
+
+$_ENV['MYSQL_HOST']
+
+Incorrecto:
+
+$_ENV['MYSQL-HOST']
+
+---
+
+4. MYSQLI
+
+---
+
+Sintaxis correcta:
+
+mysqli_query($connect, $query)
+
+---
+
+5. LOGS
+
+---
+
+Siempre revisar:
+
+kubectl logs
+
+antes de modificar recursos.
+
+---
+
+6. DEBUGGING FLOW
+
+---
+
+1. kubectl get pods
+2. kubectl get svc
+3. kubectl describe svc
+4. kubectl logs
+5. revisar puertos
+6. revisar variables
+7. revisar archivos PHP
+8. validar NodePort
+
+---
+
+7. MYSQL SERVICE
+
+---
+
+Service utilizado:
+
+mysql-service
+
+Puerto:
+
+3306
+
+---
+
+8. APACHE CONTAINER
+
+---
+
+Container:
+
+httpd-php-container
+
+Puerto:
+
+80
+
+---
+
+9. MYSQL CONTAINER
+
+---
+
+Container:
+
+mysql-container
+
+Puerto:
+
+3306
+
+---
+
+10. WEBSITE BUTTON
+
+---
+
+Una vez corregidos:
+
+* Service
+* PHP syntax
+* Variables
+* MySQL connection
+
+el Website button volvió a funcionar correctamente.
+
+---
